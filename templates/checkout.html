@@ -62,7 +62,7 @@
             {% for item in cart %}
             <div class="flex items-center gap-4">
                 <div class="w-12 h-12 rounded-xl overflow-hidden bg-white/5 border border-white/5 shrink-0">
-                    <img src="{{ item.image }}" class="w-full h-full object-cover">
+                    <img src="{{ image_url(item.image) }}" class="w-full h-full object-cover">
                 </div>
                 <div class="flex-1 min-w-0">
                     <p class="font-medium text-white truncate">{{ item.name }}</p>

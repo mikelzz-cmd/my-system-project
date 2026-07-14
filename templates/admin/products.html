@@ -1,67 +1,164 @@
 {% extends 'admin/layout.html' %}
 {% block admin_content %}
 
-<div class="mb-8">
-    <a href="{{ url_for('admin_products') }}" class="inline-flex items-center gap-2 text-white/40 hover:text-white text-sm font-semibold transition mb-4">
-        <i class="fa-solid fa-arrow-left text-xs"></i> Back to Products
+<!-- HEADER -->
+<div class="flex items-center justify-between mb-8 gap-4 flex-wrap">
+    <div>
+        <p class="text-xs uppercase tracking-[3px] text-[#C09668] font-bold mb-2">Inventory</p>
+        <h1 class="text-3xl font-bold text-white">Products</h1>
+    </div>
+    <a href="{{ url_for('admin_add_product') }}"
+       class="inline-flex items-center gap-2 bg-[#C09668] hover:bg-[#A88157] text-[#0B0806] font-bold px-5 py-3 rounded-2xl transition-all">
+        <i class="fa-solid fa-plus text-sm"></i>
+        Add Product
     </a>
-    <h1 class="text-3xl font-bold text-white">{{ "Edit Product" if product else "Add Product" }}</h1>
 </div>
 
-<div class="bg-[#0B0806]/60 border border-white/5 rounded-[2rem] p-8 max-w-2xl">
+<!-- SEARCH + FILTER -->
+<div class="flex flex-col sm:flex-row gap-3 mb-6">
 
-    <form action="{{ url_for('admin_edit_product', product_id=product.id) if product else url_for('admin_add_product') }}"
-          method="POST" enctype="multipart/form-data" class="space-y-6">
+    <div class="relative flex-1">
+        <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-white/25 text-sm"></i>
+        <input type="text" id="tkProductSearch" placeholder="Search product name..."
+            class="w-full bg-[#0B0806]/60 border border-white/10 focus:border-[#C09668] outline-none rounded-2xl pl-11 pr-4 py-3.5 text-white text-sm transition">
+    </div>
 
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <select id="tkCategoryFilter"
+        class="bg-[#0B0806]/60 border border-white/10 focus:border-[#C09668] outline-none rounded-2xl px-4 py-3.5 text-white text-sm transition">
+        <option value="all">All Categories</option>
+        {% for cat in products|map(attribute='category')|unique|list %}
+        <option value="{{ cat }}">{{ cat }}</option>
+        {% endfor %}
+    </select>
 
-        {% if product and product.image %}
-        <div>
-            <img src="{{ product.image }}" class="w-32 h-32 object-cover rounded-2xl border border-white/10">
-        </div>
-        {% endif %}
-
-        <div>
-            <label class="text-xs text-white/40 uppercase font-bold tracking-widest ml-1">Product Photo</label>
-            <label class="mt-2 flex items-center gap-3 cursor-pointer bg-[#1a1714] hover:bg-[#25201c] transition text-white px-5 py-4 rounded-2xl border border-white/5 text-sm font-semibold">
-                <i class="fa-solid fa-image"></i>
-                {{ "Choose New Photo" if product else "Choose Photo" }}
-                <input type="file" name="image" accept="image/*" class="hidden">
-            </label>
-            <p class="text-[11px] text-white/30 mt-2">PNG, JPG, JPEG, GIF, or WEBP{{ " — leave blank to keep the current photo" if product else "" }}</p>
-        </div>
-
-        <div>
-            <label class="text-xs text-white/40 uppercase font-bold tracking-widest ml-1">Product Name</label>
-            <input type="text" name="product_name" required value="{{ product.product_name if product else '' }}"
-                   class="mt-2 w-full bg-[#1a1714] border border-white/5 rounded-2xl p-4 text-white focus:border-[#C09668] outline-none transition-all">
-        </div>
-
-        <div class="grid sm:grid-cols-2 gap-6">
-            <div>
-                <label class="text-xs text-white/40 uppercase font-bold tracking-widest ml-1">Category</label>
-                <input type="text" name="category" placeholder="e.g. Hot Coffee, Pastry" value="{{ product.category if product else '' }}"
-                       class="mt-2 w-full bg-[#1a1714] border border-white/5 rounded-2xl p-4 text-white focus:border-[#C09668] outline-none transition-all">
-            </div>
-            <div>
-                <label class="text-xs text-white/40 uppercase font-bold tracking-widest ml-1">Price (₱)</label>
-                <input type="number" step="0.01" min="0" name="price" required value="{{ product.price if product else '' }}"
-                       class="mt-2 w-full bg-[#1a1714] border border-white/5 rounded-2xl p-4 text-white focus:border-[#C09668] outline-none transition-all">
-            </div>
-        </div>
-
-        <div>
-            <label class="text-xs text-white/40 uppercase font-bold tracking-widest ml-1">Description</label>
-            <textarea name="description" rows="3"
-                      class="mt-2 w-full bg-[#1a1714] border border-white/5 rounded-2xl p-4 text-white focus:border-[#C09668] outline-none transition-all">{{ product.description if product else '' }}</textarea>
-        </div>
-
-        <button type="submit" class="w-full bg-[#C09668] hover:bg-[#A88157] text-[#0B0806] font-bold py-4 rounded-2xl transition-all active:scale-[0.98]">
-            {{ "Save Changes" if product else "Add Product" }}
-        </button>
-
-    </form>
+    <select id="tkStockFilter"
+        class="bg-[#0B0806]/60 border border-white/10 focus:border-[#C09668] outline-none rounded-2xl px-4 py-3.5 text-white text-sm transition">
+        <option value="all">All Stock Levels</option>
+        <option value="low">Low Stock Only</option>
+        <option value="out">Out of Stock</option>
+    </select>
 
 </div>
+
+<!-- PRODUCTS TABLE -->
+<div class="bg-[#0B0806]/60 backdrop-blur-xl border border-white/5 rounded-3xl overflow-hidden">
+
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="text-left text-white/30 text-[10px] uppercase tracking-widest border-b border-white/5">
+                    <th class="px-6 py-4 font-bold">Product</th>
+                    <th class="px-6 py-4 font-bold">Category</th>
+                    <th class="px-6 py-4 font-bold">Price</th>
+                    <th class="px-6 py-4 font-bold">Stock</th>
+                    <th class="px-6 py-4 font-bold text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-white/5">
+                {% for product in products %}
+                <tr class="tk-product-row hover:bg-white/[0.02] transition"
+                    data-name="{{ product.product_name|lower }}"
+                    data-category="{{ product.category }}"
+                    data-stock="{{ product.stock }}">
+                    <td class="px-6 py-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-11 h-11 rounded-xl overflow-hidden bg-white/5 border border-white/5 shrink-0">
+                                <img src="{{ product.image }}" class="w-full h-full object-cover">
+                            </div>
+                            <span class="text-white font-medium">{{ product.product_name }}</span>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 text-white/50">{{ product.category }}</td>
+                    <td class="px-6 py-4 text-white font-mono">₱{{ "%.2f"|format(product.price) }}</td>
+                    <td class="px-6 py-4">
+                        {% if product.stock <= 0 %}
+                        <span class="inline-flex items-center gap-1.5 bg-red-500/10 text-red-400 text-xs font-bold px-3 py-1.5 rounded-full">
+                            <i class="fa-solid fa-circle-xmark text-[10px]"></i> Out of Stock
+                        </span>
+                        {% elif product.stock <= 5 %}
+                        <span class="inline-flex items-center gap-1.5 bg-red-500/10 text-red-400 text-xs font-bold px-3 py-1.5 rounded-full">
+                            <i class="fa-solid fa-triangle-exclamation text-[10px]"></i> {{ product.stock }} left
+                        </span>
+                        {% elif product.stock < 10 %}
+                        <span class="inline-flex items-center gap-1.5 bg-amber-400/10 text-amber-400 text-xs font-bold px-3 py-1.5 rounded-full">
+                            {{ product.stock }} left
+                        </span>
+                        {% else %}
+                        <span class="text-white/50">{{ product.stock }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="flex items-center justify-end gap-2">
+                            <a href="{{ url_for('admin_edit_product', product_id=product.id) }}"
+                               class="w-9 h-9 rounded-xl bg-white/5 hover:bg-[#C09668]/20 hover:text-[#C09668] flex items-center justify-center text-white/50 transition">
+                                <i class="fa-solid fa-pen text-xs"></i>
+                            </a>
+                            <a href="{{ url_for('admin_delete_product', product_id=product.id) }}"
+                               onclick="return confirm('Delete {{ product.product_name }}? This cannot be undone.');"
+                               class="w-9 h-9 rounded-xl bg-white/5 hover:bg-red-500/20 hover:text-red-400 flex items-center justify-center text-white/50 transition">
+                                <i class="fa-solid fa-trash text-xs"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if not products %}
+    <div class="text-center py-16">
+        <i class="fa-solid fa-box-open text-3xl text-white/10 mb-4"></i>
+        <p class="text-white/30 text-sm">No products yet. Add your first one to get started.</p>
+    </div>
+    {% endif %}
+
+    <!-- EMPTY STATE for search/filter with no matches -->
+    <div id="tkProductsEmpty" class="hidden text-center py-16">
+        <i class="fa-solid fa-magnifying-glass text-3xl text-white/10 mb-4"></i>
+        <p class="text-white/30 text-sm">No products match your search or filter.</p>
+    </div>
+
+</div>
+
+<script>
+    (function () {
+        const searchInput = document.getElementById('tkProductSearch');
+        const categorySelect = document.getElementById('tkCategoryFilter');
+        const stockSelect = document.getElementById('tkStockFilter');
+        const rows = document.querySelectorAll('.tk-product-row');
+        const emptyState = document.getElementById('tkProductsEmpty');
+
+        function applyFilters() {
+            const query = searchInput.value.trim().toLowerCase();
+            const category = categorySelect.value;
+            const stockLevel = stockSelect.value;
+            let visibleCount = 0;
+
+            rows.forEach(function (row) {
+                const name = row.dataset.name;
+                const rowCategory = row.dataset.category;
+                const stock = parseInt(row.dataset.stock, 10);
+
+                const matchesSearch = name.includes(query);
+                const matchesCategory = category === 'all' || rowCategory === category;
+
+                let matchesStock = true;
+                if (stockLevel === 'low') matchesStock = stock > 0 && stock <= 5;
+                if (stockLevel === 'out') matchesStock = stock <= 0;
+
+                const visible = matchesSearch && matchesCategory && matchesStock;
+                row.style.display = visible ? '' : 'none';
+                if (visible) visibleCount++;
+            });
+
+            emptyState.classList.toggle('hidden', visibleCount !== 0 || rows.length === 0);
+        }
+
+        searchInput.addEventListener('input', applyFilters);
+        categorySelect.addEventListener('change', applyFilters);
+        stockSelect.addEventListener('change', applyFilters);
+    })();
+</script>
 
 {% endblock %}

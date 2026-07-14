@@ -1,0 +1,120 @@
+{% extends 'admin/layout.html' %}
+{% block admin_content %}
+
+<!-- HEADER -->
+<div class="mb-8">
+    <p class="text-xs uppercase tracking-[3px] text-[#C09668] font-bold mb-2">Security</p>
+    <h1 class="text-3xl font-bold text-white">Audit Trail</h1>
+    <p class="text-white/40 text-sm mt-1">See who did what, and when. Showing the most recent 200 actions.</p>
+</div>
+
+<!-- SEARCH + FILTER -->
+<div class="flex flex-col sm:flex-row gap-3 mb-6">
+
+    <div class="relative flex-1">
+        <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-white/25 text-sm"></i>
+        <input type="text" id="tkAuditSearch" placeholder="Search by name, action, or description..."
+            class="w-full bg-[#0B0806]/60 border border-white/10 focus:border-[#C09668] outline-none rounded-2xl pl-11 pr-4 py-3.5 text-white text-sm transition">
+    </div>
+
+    <select id="tkModuleFilter"
+        class="bg-[#0B0806]/60 border border-white/10 focus:border-[#C09668] outline-none rounded-2xl px-4 py-3.5 text-white text-sm transition">
+        <option value="all">All Modules</option>
+        {% for mod in logs|map(attribute='module')|unique|list %}
+        <option value="{{ mod }}">{{ mod }}</option>
+        {% endfor %}
+    </select>
+
+</div>
+
+<!-- LOGS TABLE -->
+<div class="bg-[#0B0806]/60 backdrop-blur-xl border border-white/5 rounded-3xl overflow-hidden">
+
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="text-left text-white/30 text-[10px] uppercase tracking-widest border-b border-white/5">
+                    <th class="px-6 py-4 font-bold">User</th>
+                    <th class="px-6 py-4 font-bold">Action</th>
+                    <th class="px-6 py-4 font-bold">Module</th>
+                    <th class="px-6 py-4 font-bold">Details</th>
+                    <th class="px-6 py-4 font-bold">When</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-white/5">
+                {% for log in logs %}
+                <tr class="tk-log-row hover:bg-white/[0.02] transition"
+                    data-search="{{ (log.username ~ ' ' ~ log.action ~ ' ' ~ (log.description or ''))|lower }}"
+                    data-module="{{ log.module }}">
+                    <td class="px-6 py-4">
+                        <div class="flex items-center gap-2">
+                            <span class="w-7 h-7 rounded-full bg-[#C09668]/10 text-[#C09668] text-[10px] font-bold flex items-center justify-center shrink-0">
+                                {{ log.username[:1]|upper if log.username else '?' }}
+                            </span>
+                            <div>
+                                <p class="text-white font-medium leading-tight">{{ log.username or 'Unknown' }}</p>
+                                <p class="text-white/30 text-[10px] uppercase tracking-wide">{{ log.role }}</p>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 text-white/70">{{ log.action }}</td>
+                    <td class="px-6 py-4">
+                        <span class="inline-block bg-white/5 text-white/50 text-xs font-semibold px-3 py-1.5 rounded-full">
+                            {{ log.module }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-white/40 max-w-xs truncate" title="{{ log.description or '' }}">
+                        {{ log.description or '—' }}
+                    </td>
+                    <td class="px-6 py-4 text-white/30 text-xs whitespace-nowrap">
+                        {{ log.created_at.strftime('%b %d, %Y · %I:%M %p') if log.created_at else '—' }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if not logs %}
+    <div class="text-center py-16">
+        <i class="fa-solid fa-shield-halved text-3xl text-white/10 mb-4"></i>
+        <p class="text-white/30 text-sm">No activity recorded yet.</p>
+    </div>
+    {% endif %}
+
+    <div id="tkAuditEmpty" class="hidden text-center py-16">
+        <i class="fa-solid fa-magnifying-glass text-3xl text-white/10 mb-4"></i>
+        <p class="text-white/30 text-sm">No logs match your search or filter.</p>
+    </div>
+
+</div>
+
+<script>
+    (function () {
+        const searchInput = document.getElementById('tkAuditSearch');
+        const moduleSelect = document.getElementById('tkModuleFilter');
+        const rows = document.querySelectorAll('.tk-log-row');
+        const emptyState = document.getElementById('tkAuditEmpty');
+
+        function applyFilters() {
+            const query = searchInput.value.trim().toLowerCase();
+            const module = moduleSelect.value;
+            let visibleCount = 0;
+
+            rows.forEach(function (row) {
+                const matchesSearch = row.dataset.search.includes(query);
+                const matchesModule = module === 'all' || row.dataset.module === module;
+                const visible = matchesSearch && matchesModule;
+                row.style.display = visible ? '' : 'none';
+                if (visible) visibleCount++;
+            });
+
+            emptyState.classList.toggle('hidden', visibleCount !== 0 || rows.length === 0);
+        }
+
+        searchInput.addEventListener('input', applyFilters);
+        moduleSelect.addEventListener('change', applyFilters);
+    })();
+</script>
+
+{% endblock %}

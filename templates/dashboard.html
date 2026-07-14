@@ -28,7 +28,6 @@
     font-family: 'Caveat', cursive;
   }
 
-  /* Chalkboard-style eyebrow tag, like a hand-labeled menu sticker */
   .tk-page .tk-tag {
     font-family: 'Caveat', cursive;
     font-weight: 600;
@@ -49,7 +48,6 @@
   }
   .tk-page .tk-tag.on-cream { color: var(--copper-dark); }
 
-  /* Coffee-ring stain texture, used as a quiet recurring motif */
   .tk-page .tk-ring {
     position: absolute;
     border-radius: 9999px;
@@ -97,7 +95,6 @@
 
         <div class="tk-ring" style="width:340px;height:340px;top:-60px;left:-120px;"></div>
 
-        <!-- LEFT -->
         <div class="relative tk-rise">
 
             <span class="tk-tag mb-6">
@@ -133,7 +130,6 @@
 
         </div>
 
-        <!-- RIGHT -->
         <div class="relative tk-rise" style="animation-delay:0.1s;">
 
             <img
@@ -226,7 +222,6 @@
     </section>
 
     <!-- ================= ABOUT ================= -->
-    <!-- presented as a paper insert, like a page pulled out of the shop's own menu book -->
 
     <section id="about" class="py-20">
 
@@ -306,7 +301,7 @@
 
             <div class="bg-[var(--espresso-light)] rounded-2xl p-4 border border-[var(--espresso-border)] hover:border-[var(--copper)] transition duration-300 hover:-translate-y-2">
 
-                <img src="{{ product.image }}"
+                <img src="{{ image_url(product.image) }}"
                     class="w-full h-48 object-cover rounded-xl mb-4">
 
                 <h3 class="tk-display text-xl font-bold text-white">
@@ -340,7 +335,6 @@
     </section>
 
     <!-- ================= REVIEWS ================= -->
-    <!-- second paper insert, pairs with the About section for the light/dark "latte" rhythm -->
 
     <section class="py-20">
 

@@ -1,69 +1,46 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="max-w-7xl mx-auto px-6 py-10">
-
     <div class="grid lg:grid-cols-5 gap-8">
 
-        <!-- ADMIN SIDEBAR -->
+        <!-- SIDEBAR -->
         <aside class="lg:col-span-1">
-            <div class="bg-[#0B0806]/60 backdrop-blur-2xl border border-white/5 rounded-[2rem] p-4 lg:sticky lg:top-28">
+            <div class="lg:sticky lg:top-24 bg-[#0B0806]/60 backdrop-blur-xl border border-white/5 rounded-3xl p-4">
 
-                <p class="text-[10px] uppercase tracking-widest text-[#C09668] font-bold px-4 pt-2 pb-4">
-                    <i class="fa-solid fa-user-shield mr-1.5"></i> Admin Panel
-                </p>
+                <p class="text-[10px] uppercase tracking-[3px] text-[#C09668] font-bold px-3 pt-2 pb-4">Owner Panel</p>
 
                 <nav class="space-y-1">
 
                     <a href="{{ url_for('admin_dashboard') }}"
-                       class="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold transition
-                       {% if request.path == url_for('admin_dashboard') %}
-                           bg-[#C09668]/15 text-[#C09668] border border-[#C09668]/30
-                       {% else %}
-                           text-white/60 border border-transparent hover:bg-white/5 hover:text-white
-                       {% endif %}">
-                        <i class="fa-solid fa-gauge w-5 text-center"></i>
-                        Overview
-                    </a>
-
-                    <a href="{{ url_for('admin_products') }}"
-                       class="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold transition
-                       {% if request.path.startswith(url_for('admin_products')) %}
-                           bg-[#C09668]/15 text-[#C09668] border border-[#C09668]/30
-                       {% else %}
-                           text-white/60 border border-transparent hover:bg-white/5 hover:text-white
-                       {% endif %}">
-                        <i class="fa-solid fa-mug-hot w-5 text-center"></i>
-                        Products
+                       class="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-semibold transition {{ 'bg-[#C09668]/10 text-[#C09668]' if active == 'dashboard' else 'text-white/60 hover:bg-white/5 hover:text-white' }}">
+                        <i class="fa-solid fa-gauge-high w-4"></i> Dashboard
                     </a>
 
                     <a href="{{ url_for('admin_orders') }}"
-                       class="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold transition
-                       {% if request.path == url_for('admin_orders') %}
-                           bg-[#C09668]/15 text-[#C09668] border border-[#C09668]/30
-                       {% else %}
-                           text-white/60 border border-transparent hover:bg-white/5 hover:text-white
-                       {% endif %}">
-                        <i class="fa-solid fa-receipt w-5 text-center"></i>
-                        Orders
+                       class="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-semibold transition {{ 'bg-[#C09668]/10 text-[#C09668]' if active == 'orders' else 'text-white/60 hover:bg-white/5 hover:text-white' }}">
+                        <i class="fa-solid fa-receipt w-4"></i> Orders
+                    </a>
+
+                    <a href="{{ url_for('admin_products') }}"
+                       class="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-semibold transition {{ 'bg-[#C09668]/10 text-[#C09668]' if active == 'products' else 'text-white/60 hover:bg-white/5 hover:text-white' }}">
+                        <i class="fa-solid fa-box-open w-4"></i> Products
                     </a>
 
                     <a href="{{ url_for('admin_users') }}"
-                       class="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold transition
-                       {% if request.path == url_for('admin_users') %}
-                           bg-[#C09668]/15 text-[#C09668] border border-[#C09668]/30
-                       {% else %}
-                           text-white/60 border border-transparent hover:bg-white/5 hover:text-white
-                       {% endif %}">
-                        <i class="fa-solid fa-users w-5 text-center"></i>
-                        Users
+                       class="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-semibold transition {{ 'bg-[#C09668]/10 text-[#C09668]' if active == 'users' else 'text-white/60 hover:bg-white/5 hover:text-white' }}">
+                        <i class="fa-solid fa-users w-4"></i> Users
+                    </a>
+
+                    <a href="{{ url_for('admin_audit_trail') }}"
+                       class="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-semibold transition {{ 'bg-[#C09668]/10 text-[#C09668]' if active == 'audit' else 'text-white/60 hover:bg-white/5 hover:text-white' }}">
+                        <i class="fa-solid fa-shield-halved w-4"></i> Audit Trail
                     </a>
 
                     <div class="h-px bg-white/5 my-2"></div>
 
                     <a href="{{ url_for('dashboard') }}"
-                       class="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold text-white/40 border border-transparent hover:bg-white/5 hover:text-white transition">
-                        <i class="fa-solid fa-arrow-left w-5 text-center"></i>
-                        Back to Site
+                       class="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-semibold text-white/40 hover:bg-white/5 hover:text-white transition">
+                        <i class="fa-solid fa-arrow-left w-4"></i> Back to Shop
                     </a>
 
                 </nav>
@@ -71,12 +48,11 @@
             </div>
         </aside>
 
-        <!-- ADMIN CONTENT -->
-        <div class="lg:col-span-4">
+        <!-- MAIN CONTENT -->
+        <div class="lg:col-span-4 min-w-0">
             {% block admin_content %}{% endblock %}
         </div>
 
     </div>
-
 </div>
 {% endblock %}

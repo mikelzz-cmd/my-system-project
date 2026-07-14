@@ -1,75 +1,228 @@
 {% extends 'admin/layout.html' %}
-{% set active = 'dashboard' %}
 {% block admin_content %}
 
-<div class="mb-8">
-    <h1 class="text-3xl font-bold text-white">Overview</h1>
-    <p class="text-white/40 text-sm mt-1">Snapshot ng buong Tara Kape operations mo.</p>
+<!-- HEADER -->
+<div class="mb-10">
+    <p class="text-xs uppercase tracking-[3px] text-[#C09668] font-bold mb-2">Owner Panel</p>
+    <h1 class="text-3xl font-bold text-white">Owner Dashboard</h1>
+    <p class="text-white/40 text-sm mt-1">
+        Welcome back{{ ', ' + fullname if fullname else '' }}. Here's what's happening in your shop today.
+    </p>
 </div>
 
 <!-- STAT CARDS -->
-<div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
 
-    <div class="bg-[#0B0806]/60 border border-white/5 rounded-3xl p-6">
-        <div class="w-11 h-11 rounded-2xl bg-emerald-500/10 flex items-center justify-center mb-4">
-            <i class="fa-solid fa-peso-sign text-emerald-400"></i>
+    <a href="{{ url_for('admin_orders') }}?status=Pending"
+       class="bg-[#0B0806]/60 backdrop-blur-xl border border-white/5 hover:border-[#C09668]/30 rounded-2xl p-5 transition group">
+        <div class="w-10 h-10 rounded-xl bg-amber-400/10 flex items-center justify-center mb-4">
+            <i class="fa-solid fa-hourglass-half text-amber-400 text-sm"></i>
         </div>
-        <p class="text-2xl font-bold text-white">₱{{ "%.2f"|format(total_sales) }}</p>
-        <p class="text-white/40 text-xs mt-1">Total Sales (Completed)</p>
+        <p class="text-white/40 text-xs font-semibold uppercase tracking-wider mb-1">Pending</p>
+        <p class="text-3xl font-bold text-white">{{ pending_orders }}</p>
+    </a>
+
+    <a href="{{ url_for('admin_orders') }}?status=Preparing"
+       class="bg-[#0B0806]/60 backdrop-blur-xl border border-white/5 hover:border-[#C09668]/30 rounded-2xl p-5 transition group">
+        <div class="w-10 h-10 rounded-xl bg-blue-400/10 flex items-center justify-center mb-4">
+            <i class="fa-solid fa-mug-hot text-blue-400 text-sm"></i>
+        </div>
+        <p class="text-white/40 text-xs font-semibold uppercase tracking-wider mb-1">Preparing</p>
+        <p class="text-3xl font-bold text-white">{{ preparing_orders }}</p>
+    </a>
+
+    <a href="{{ url_for('admin_orders') }}?status=Completed"
+       class="bg-[#0B0806]/60 backdrop-blur-xl border border-white/5 hover:border-[#C09668]/30 rounded-2xl p-5 transition group">
+        <div class="w-10 h-10 rounded-xl bg-emerald-400/10 flex items-center justify-center mb-4">
+            <i class="fa-solid fa-circle-check text-emerald-400 text-sm"></i>
+        </div>
+        <p class="text-white/40 text-xs font-semibold uppercase tracking-wider mb-1">Completed</p>
+        <p class="text-3xl font-bold text-white">{{ completed_orders }}</p>
+    </a>
+
+    <a href="{{ url_for('admin_products') }}"
+       class="bg-[#0B0806]/60 backdrop-blur-xl border border-white/5 hover:border-red-400/30 rounded-2xl p-5 transition group">
+        <div class="w-10 h-10 rounded-xl bg-red-400/10 flex items-center justify-center mb-4">
+            <i class="fa-solid fa-triangle-exclamation text-red-400 text-sm"></i>
+        </div>
+        <p class="text-white/40 text-xs font-semibold uppercase tracking-wider mb-1">Low Stock</p>
+        <p class="text-3xl font-bold text-white">{{ low_stock_count }}</p>
+    </a>
+
+    <a href="{{ url_for('admin_products') }}"
+       class="bg-[#0B0806]/60 backdrop-blur-xl border border-white/5 hover:border-[#C09668]/30 rounded-2xl p-5 transition group">
+        <div class="w-10 h-10 rounded-xl bg-[#C09668]/10 flex items-center justify-center mb-4">
+            <i class="fa-solid fa-mug-saucer text-[#C09668] text-sm"></i>
+        </div>
+        <p class="text-white/40 text-xs font-semibold uppercase tracking-wider mb-1">Products</p>
+        <p class="text-3xl font-bold text-white">{{ total_products }}</p>
+    </a>
+
+    <a href="{{ url_for('admin_users') }}"
+       class="bg-[#0B0806]/60 backdrop-blur-xl border border-white/5 hover:border-[#C09668]/30 rounded-2xl p-5 transition group">
+        <div class="w-10 h-10 rounded-xl bg-purple-400/10 flex items-center justify-center mb-4">
+            <i class="fa-solid fa-users text-purple-400 text-sm"></i>
+        </div>
+        <p class="text-white/40 text-xs font-semibold uppercase tracking-wider mb-1">Users</p>
+        <p class="text-3xl font-bold text-white">{{ total_users }}</p>
+    </a>
+
+    <div class="bg-[#0B0806]/60 backdrop-blur-xl border border-white/5 rounded-2xl p-5 col-span-2 lg:col-span-2">
+        <div class="w-10 h-10 rounded-xl bg-emerald-400/10 flex items-center justify-center mb-4">
+            <i class="fa-solid fa-sack-dollar text-emerald-400 text-sm"></i>
+        </div>
+        <p class="text-white/40 text-xs font-semibold uppercase tracking-wider mb-1">Total Sales (Completed)</p>
+        <p class="text-3xl font-bold text-[#C09668]">₱{{ "%.2f"|format(total_sales) }}</p>
     </div>
 
-    <div class="bg-[#0B0806]/60 border border-white/5 rounded-3xl p-6">
-        <div class="w-11 h-11 rounded-2xl bg-[#C09668]/10 flex items-center justify-center mb-4">
-            <i class="fa-solid fa-receipt text-[#C09668]"></i>
-        </div>
-        <p class="text-2xl font-bold text-white">{{ total_orders }}</p>
-        <p class="text-white/40 text-xs mt-1">Total Orders</p>
+</div>
+
+<!-- SALES TREND CHART (added) -->
+<div class="mb-10">
+    <div class="flex items-center justify-between mb-4">
+        <h2 class="text-xs font-bold text-white/30 uppercase tracking-widest">Sales Trend — Last 14 Days</h2>
+        <span class="text-[10px] text-white/20 uppercase tracking-wide">Completed orders only</span>
     </div>
 
-    <div class="bg-[#0B0806]/60 border border-white/5 rounded-3xl p-6">
-        <div class="w-11 h-11 rounded-2xl bg-amber-500/10 flex items-center justify-center mb-4">
-            <i class="fa-solid fa-clock text-amber-400"></i>
+    <div class="bg-[#0B0806]/60 backdrop-blur-xl border border-white/5 rounded-2xl p-6">
+        {% if sales_trend_values and sales_trend_values|sum > 0 %}
+        <div class="h-64">
+            <canvas id="tkSalesChart"></canvas>
         </div>
-        <p class="text-2xl font-bold text-white">{{ pending_orders }}</p>
-        <p class="text-white/40 text-xs mt-1">Pending Orders</p>
-    </div>
-
-    <div class="bg-[#0B0806]/60 border border-white/5 rounded-3xl p-6">
-        <div class="w-11 h-11 rounded-2xl bg-sky-500/10 flex items-center justify-center mb-4">
-            <i class="fa-solid fa-users text-sky-400"></i>
+        {% else %}
+        <div class="h-64 flex flex-col items-center justify-center text-center">
+            <i class="fa-solid fa-chart-line text-3xl text-white/10 mb-3"></i>
+            <p class="text-white/30 text-sm">No completed sales in the last 14 days yet.</p>
         </div>
-        <p class="text-2xl font-bold text-white">{{ total_users }}</p>
-        <p class="text-white/40 text-xs mt-1">Registered Users</p>
+        {% endif %}
     </div>
+</div>
 
+<!-- MANAGEMENT SHORTCUTS -->
+<div class="mb-10">
+    <h2 class="text-xs font-bold text-white/30 uppercase tracking-widest mb-4">Management Shortcuts</h2>
+
+    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+        <a href="{{ url_for('admin_orders') }}"
+           class="bg-[#1a1714] hover:bg-[#211c18] border border-white/5 hover:border-[#C09668]/30 rounded-2xl p-6 transition">
+            <i class="fa-solid fa-receipt text-2xl text-[#C09668] mb-3"></i>
+            <h3 class="font-bold text-white mb-1">Orders</h3>
+            <p class="text-xs text-white/30">View and manage customer orders.</p>
+        </a>
+
+        <a href="{{ url_for('admin_products') }}"
+           class="bg-[#1a1714] hover:bg-[#211c18] border border-white/5 hover:border-[#C09668]/30 rounded-2xl p-6 transition">
+            <i class="fa-solid fa-box-open text-2xl text-[#C09668] mb-3"></i>
+            <h3 class="font-bold text-white mb-1">Inventory</h3>
+            <p class="text-xs text-white/30">Manage menu items and stock.</p>
+        </a>
+
+        <a href="{{ url_for('admin_users') }}"
+           class="bg-[#1a1714] hover:bg-[#211c18] border border-white/5 hover:border-[#C09668]/30 rounded-2xl p-6 transition">
+            <i class="fa-solid fa-users-gear text-2xl text-[#C09668] mb-3"></i>
+            <h3 class="font-bold text-white mb-1">Account Management</h3>
+            <p class="text-xs text-white/30">View registered users.</p>
+        </a>
+
+        <a href="{{ url_for('admin_audit_trail') }}"
+           class="bg-[#1a1714] hover:bg-[#211c18] border border-white/5 hover:border-[#C09668]/30 rounded-2xl p-6 transition">
+            <i class="fa-solid fa-shield-halved text-2xl text-[#C09668] mb-3"></i>
+            <h3 class="font-bold text-white mb-1">Audit Trail</h3>
+            <p class="text-xs text-white/30">See who did what, and when.</p>
+        </a>
+
+    </div>
 </div>
 
 <!-- BEST SELLERS -->
-<div class="bg-[#0B0806]/60 border border-white/5 rounded-[2rem] p-8">
+<div>
+    <h2 class="text-xs font-bold text-white/30 uppercase tracking-widest mb-4">Best Sellers</h2>
 
-    <div class="flex items-center justify-between mb-6">
-        <h2 class="text-xl font-bold text-white">Best Sellers</h2>
-        <span class="text-white/30 text-xs uppercase tracking-widest font-bold">{{ total_products }} products total</span>
-    </div>
-
-    {% if best_sellers %}
-    <div class="space-y-3">
-        {% for item in best_sellers %}
-        <div class="flex items-center justify-between bg-white/5 rounded-2xl px-5 py-4">
-            <div class="flex items-center gap-3">
-                <span class="w-7 h-7 rounded-full bg-[#C09668]/15 text-[#C09668] text-xs font-bold flex items-center justify-center">
-                    {{ loop.index }}
-                </span>
-                <span class="text-white font-medium">{{ item.product_name }}</span>
+    <div class="bg-[#0B0806]/60 backdrop-blur-xl border border-white/5 rounded-2xl overflow-hidden">
+        {% if best_sellers %}
+        <div class="divide-y divide-white/5">
+            {% for item in best_sellers %}
+            <div class="flex items-center justify-between px-6 py-4">
+                <div class="flex items-center gap-4">
+                    <span class="w-7 h-7 rounded-full bg-[#C09668]/10 text-[#C09668] text-xs font-bold flex items-center justify-center">
+                        {{ loop.index }}
+                    </span>
+                    <span class="text-white font-medium">{{ item.product_name }}</span>
+                </div>
+                <span class="text-white/40 text-sm">{{ item.total_qty }} sold</span>
             </div>
-            <span class="text-white/50 text-sm">{{ item.total_qty }} sold</span>
+            {% endfor %}
         </div>
-        {% endfor %}
+        {% else %}
+        <p class="text-center py-10 text-white/30 text-sm">Wala pang sales data.</p>
+        {% endif %}
     </div>
-    {% else %}
-    <p class="text-white/40 text-sm">Wala pang orders na naitala.</p>
-    {% endif %}
-
 </div>
+
+{% if sales_trend_values and sales_trend_values|sum > 0 %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script>
+    (function () {
+        const ctx = document.getElementById('tkSalesChart');
+        if (!ctx) return;
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: {{ sales_trend_labels|tojson }},
+                datasets: [{
+                    label: 'Sales (₱)',
+                    data: {{ sales_trend_values|tojson }},
+                    borderColor: '#C09668',
+                    backgroundColor: 'rgba(192, 150, 104, 0.12)',
+                    borderWidth: 2,
+                    pointRadius: 3,
+                    pointBackgroundColor: '#C09668',
+                    pointBorderColor: '#0B0806',
+                    pointBorderWidth: 1.5,
+                    tension: 0.35,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#1a1714',
+                        borderColor: 'rgba(192, 150, 104, 0.3)',
+                        borderWidth: 1,
+                        titleColor: '#ffffff',
+                        bodyColor: '#C09668',
+                        padding: 10,
+                        callbacks: {
+                            label: function (item) {
+                                return '₱' + item.parsed.y.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { color: 'rgba(255,255,255,0.04)' },
+                        ticks: { color: 'rgba(255,255,255,0.3)', font: { size: 10 } }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(255,255,255,0.04)' },
+                        ticks: {
+                            color: 'rgba(255,255,255,0.3)',
+                            font: { size: 10 },
+                            callback: function (value) { return '₱' + value; }
+                        }
+                    }
+                }
+            }
+        });
+    })();
+</script>
+{% endif %}
 
 {% endblock %}

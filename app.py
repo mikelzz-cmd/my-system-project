@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import os
 import time
 import uuid
+from datetime import date, timedelta
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
@@ -47,6 +48,29 @@ def allowed_file(filename):
         "." in filename
         and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
     )
+
+
+# ==========================================
+# IMAGE URL RESOLVER  (added)
+# available in every template as {{ image_url(product.image) }}.
+# Full URLs (e.g. Unsplash seed images) pass through unchanged.
+# Anything else is treated as a relative path inside /static
+# (e.g. "uploads/abc123.jpg" from admin/profile uploads).
+# ==========================================
+@app.template_global()
+def image_url(path):
+    if not path:
+        # 200x200 dark placeholder, no extra file needed
+        return (
+            "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' "
+            "width='200' height='200'%3E%3Crect width='200' height='200' "
+            "fill='%231a1714'/%3E%3C/svg%3E"
+        )
+
+    if path.startswith("http://") or path.startswith("https://"):
+        return path
+
+    return url_for("static", filename=path)
 
 
 # ==========================================
@@ -134,6 +158,35 @@ def create_notification(user_id, message, link=None):
 
     cursor.close()
     conn.close()
+
+
+# ==========================================
+# LOW STOCK ALERT  (added)
+# fires a notification to every admin account when a product's stock
+# drops to this level or below because of a placed order
+# ==========================================
+LOW_STOCK_THRESHOLD = 5
+
+
+def notify_admins_low_stock(product_name, stock_left):
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    cursor.execute("SELECT id FROM users WHERE is_admin=1")
+    admins = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    message = f"⚠️ Low stock: '{product_name}' has only {stock_left} left."
+
+    for admin in admins:
+        create_notification(
+            admin["id"],
+            message,
+            link=url_for("admin_products")
+        )
 
 
 @app.context_processor
@@ -519,7 +572,11 @@ def place_order():
     cursor = conn.cursor(dictionary=True)
 
     # (added) check stock BEFORE placing any order — stop the whole
-    # checkout if any item doesn't have enough stock left
+    # checkout if any item doesn't have enough stock left.
+    # also remember the stock BEFORE deduction so we can tell if this
+    # order is what pushes an item below the low-stock threshold
+    stock_before = {}
+
     for item in cart:
 
         cursor.execute("SELECT stock, product_name FROM products WHERE id=%s", (item["id"],))
@@ -531,12 +588,15 @@ def place_order():
             flash(f"Sorry, '{item['name']}' doesn't have enough stock left.")
             return redirect(url_for("cart"))
 
+        stock_before[item["id"]] = row["stock"]
+
     cursor.close()
     cursor = conn.cursor()
 
     try:
 
         order_ids = []
+        low_stock_alerts = []  # (added) collect alerts to send after commit
 
         for item in cart:
 
@@ -548,6 +608,13 @@ def place_order():
                 SET stock = stock - %s
                 WHERE id = %s
             """, (item["quantity"], item["id"]))
+
+            # (added) if this order just pushed the item's stock at or
+            # below the threshold, queue a low-stock alert for admins
+            new_stock = stock_before[item["id"]] - item["quantity"]
+
+            if stock_before[item["id"]] > LOW_STOCK_THRESHOLD >= new_stock:
+                low_stock_alerts.append((item["name"], new_stock))
 
             cursor.execute("""
                 INSERT INTO orders
@@ -597,6 +664,10 @@ def place_order():
             f"Order placed! {item_count} item(s) totaling ₱{grand_total:.2f}.",
             link=url_for("orders")
         )
+
+        # (added) send low stock alerts to admins now that the order is committed
+        for product_name, stock_left in low_stock_alerts:
+            notify_admins_low_stock(product_name, stock_left)
 
         return redirect(url_for("receipt", order_ids=",".join(str(i) for i in order_ids)))
 
@@ -689,7 +760,7 @@ def orders():
     grouped_orders = []
 
     for o in orders:
-        ts = o.get("timestamp")
+        ts = o.get("order_date")
         if  grouped_orders and ts is not None and grouped_orders[-1]["timestamp"] == ts:
             grouped_orders[-1]["orders"].append(o)
             grouped_orders[-1]["total"] += float(o["total"])
@@ -822,6 +893,10 @@ def cancel_order(order_id):
 
     cursor.close()
     conn.close()
+
+    # (added) record this action in the audit trail — customers can
+    # cancel their own pending orders too, not just admins
+    log_action("Cancelled order", "Orders", f"Order #{order_id} ({order['product_name']})")
 
     flash("Order cancelled.")
 
@@ -1287,6 +1362,18 @@ def admin_dashboard():
     cursor.execute("SELECT COUNT(*) AS total FROM orders WHERE status='Pending'")
     pending_orders = cursor.fetchone()["total"]
 
+    # (added) counts needed by the dashboard's stat cards
+    cursor.execute("SELECT COUNT(*) AS total FROM orders WHERE status='Preparing'")
+    preparing_orders = cursor.fetchone()["total"]
+
+    cursor.execute("SELECT COUNT(*) AS total FROM orders WHERE status='Completed'")
+    completed_orders = cursor.fetchone()["total"]
+
+    # (added) products running low — adjust the threshold (10) to whatever
+    # makes sense for your shop
+    cursor.execute("SELECT COUNT(*) AS total FROM products WHERE stock < 10")
+    low_stock_count = cursor.fetchone()["total"]
+
     cursor.execute("SELECT COALESCE(SUM(total), 0) AS sales FROM orders WHERE status='Completed'")
     total_sales = cursor.fetchone()["sales"]
 
@@ -1299,18 +1386,108 @@ def admin_dashboard():
     """)
     best_sellers = cursor.fetchall()
 
+    # ==========================================
+    # SALES TREND — last 14 days  (added)
+    # Completed orders only, grouped by day. Days with no sales are
+    # filled in as 0 so the chart shows a continuous line.
+    # ==========================================
+    cursor.execute("""
+        SELECT DATE(order_date) AS day, COALESCE(SUM(total), 0) AS sales
+        FROM orders
+        WHERE status = 'Completed' AND order_date >= (CURDATE() - INTERVAL 13 DAY)
+        GROUP BY DATE(order_date)
+    """)
+    sales_rows = cursor.fetchall()
+    sales_by_day = {str(row["day"]): float(row["sales"]) for row in sales_rows}
+
+    today = date.today()
+    sales_trend_labels = []
+    sales_trend_values = []
+
+    for i in range(13, -1, -1):
+        d = today - timedelta(days=i)
+        sales_trend_labels.append(d.strftime("%b %d"))
+        sales_trend_values.append(sales_by_day.get(str(d), 0))
+
     cursor.close()
     conn.close()
 
     return render_template(
         "admin/dashboard.html",
+        active="dashboard",
         total_users=total_users,
         total_products=total_products,
         total_orders=total_orders,
         pending_orders=pending_orders,
+        preparing_orders=preparing_orders,
+        completed_orders=completed_orders,
+        low_stock_count=low_stock_count,
         total_sales=total_sales,
-        best_sellers=best_sellers
+        best_sellers=best_sellers,
+        sales_trend_labels=sales_trend_labels,
+        sales_trend_values=sales_trend_values,
+        fullname=session.get("fullname")
     )
+
+
+# ==========================================
+# ADMIN: AUDIT TRAIL  (fixed to match actual table schema)
+# ==========================================
+@app.route("/admin/audit-trail")
+@admin_required
+def admin_audit_trail():
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    cursor.execute("""
+        SELECT
+            id,
+            username,
+            role,
+            action,
+            module,
+            description,
+            created_at
+        FROM audit_log
+        ORDER BY id DESC
+        LIMIT 200
+    """)
+    logs = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    return render_template("admin/audit-trail.html", logs=logs, active="audit")
+
+
+def log_action(action, module, description=None):
+    """
+    (fixed) call this anywhere you want to record an admin action.
+    Pulls the acting user's name/role from the current session, since
+    the audit_log table stores username/role directly (no user_id column).
+
+    e.g. log_action("Updated order status", "Orders",
+                     f"Order #{order_id} -> {status}")
+    """
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO audit_log (username, role, action, module, description)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (
+            session.get("fullname", "Unknown"),
+            "Admin" if session.get("is_admin") else "User",
+            action,
+            module,
+            description
+        ))
+        conn.commit()
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        print("Audit log error:", e)
 
 
 # ==========================================
@@ -1329,7 +1506,7 @@ def admin_products():
     cursor.close()
     conn.close()
 
-    return render_template("admin/products.html", products=products)
+    return render_template("admin/products.html", products=products, active="products")
 
 
 # ==========================================
@@ -1391,11 +1568,14 @@ def admin_add_product():
         cursor.close()
         conn.close()
 
+        # (added) record this action in the audit trail
+        log_action("Added product", "Products", f"{product_name} - ₱{price}")
+
         flash("Product added!")
 
         return redirect(url_for("admin_products"))
 
-    return render_template("admin/product_form.html", product=None)
+    return render_template("admin/product_form.html", product=None, active="products")
 
 
 # ==========================================
@@ -1474,6 +1654,9 @@ def admin_edit_product(product_id):
         cursor.close()
         conn.close()
 
+        # (added) record this action in the audit trail
+        log_action("Edited product", "Products", f"{product_name} (#{product_id})")
+
         flash("Product updated!")
 
         return redirect(url_for("admin_products"))
@@ -1481,7 +1664,7 @@ def admin_edit_product(product_id):
     cursor.close()
     conn.close()
 
-    return render_template("admin/product_form.html", product=product)
+    return render_template("admin/product_form.html", product=product, active="products")
 
 
 # ==========================================
@@ -1492,14 +1675,27 @@ def admin_edit_product(product_id):
 def admin_delete_product(product_id):
 
     conn = get_db_connection()
-    cursor = conn.cursor()
+    cursor = conn.cursor(dictionary=True)
 
-    cursor.execute("DELETE FROM products WHERE id=%s", (product_id,))
+    # (added) fetch the product name first so the audit log entry is readable
+    cursor.execute("SELECT product_name FROM products WHERE id=%s", (product_id,))
+    product = cursor.fetchone()
+
+    delete_cursor = conn.cursor()
+    delete_cursor.execute("DELETE FROM products WHERE id=%s", (product_id,))
 
     conn.commit()
 
+    delete_cursor.close()
     cursor.close()
     conn.close()
+
+    # (added) record this action in the audit trail
+    log_action(
+        "Deleted product",
+        "Products",
+        product["product_name"] if product else f"Product #{product_id}"
+    )
 
     flash("Product deleted.")
 
@@ -1522,7 +1718,7 @@ def admin_orders():
     cursor.close()
     conn.close()
 
-    return render_template("admin/orders.html", orders=orders)
+    return render_template("admin/orders.html", orders=orders, active="orders")
 
 
 # ==========================================
@@ -1574,6 +1770,13 @@ def admin_update_order_status(order_id, status):
             link=url_for("orders")
         )
 
+    # (added) record this action in the audit trail
+    log_action(
+        "Updated order status",
+        "Orders",
+        f"Order #{order_id} ({target_order['product_name']}) -> {status}"
+    )
+
     flash(f"Order #{order_id} marked as {status}.")
 
     return redirect(url_for("admin_orders"))
@@ -1599,7 +1802,7 @@ def admin_users():
     cursor.close()
     conn.close()
 
-    return render_template("admin/users.html", users=users)
+    return render_template("admin/users.html", users=users, active="users")
 
 
 # ==========================================
